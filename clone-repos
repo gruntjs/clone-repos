@@ -1,0 +1,43 @@
+#!/usr/bin/env ruby
+
+# Clone all gruntjs repos into the CWD.
+
+require 'open-uri'
+require 'json'
+require 'pp'
+
+user = 'gruntjs'
+password = ''
+
+print "Fetching repository list for #{user}..."
+options = password.empty? ? {} : {:http_basic_authentication => [user, password]}
+
+begin
+  json = open("https://api.github.com/users/#{user}/repos?per_page=100", options).read
+  repos = JSON.parse(json)
+rescue Exception=>err
+  puts err
+  exit 1
+end
+
+if repos.empty?
+  puts "no repos!"
+  exit 1
+else
+  puts "found #{repos.length} repo#{repos.length == 1 ? '' : 's'}."
+end
+
+repos.select! {|r| not File.exists? r['name'] and not r['fork']}
+
+if repos.empty?
+  puts "No new repos found."
+  exit
+end
+
+repos.each do |r|
+  unless system %Q{git clone "#{r['git_url']}" "#{r['name']}"}
+    FileUtils.rm_rf r['name']
+    puts "\nAn error occurred."
+    exit 1
+  end
+end
